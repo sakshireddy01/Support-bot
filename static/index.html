@@ -1,0 +1,85 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Support Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; margin: 0; background:#0b1220; color:#e8eefb; }
+    .wrap { max-width: 820px; margin: 40px auto; padding: 0 16px; }
+    h1 { font-size: 22px; margin-bottom: 16px; }
+    .chat { background:#121a2b; border:1px solid #1f2a44; border-radius:16px; padding:16px; min-height: 50vh; }
+    .msg { margin: 10px 0; padding: 12px 14px; border-radius:12px; line-height:1.4; }
+    .me  { background:#1a2440; margin-left: 80px; }
+    .bot { background:#121826; border:1px solid #223057; margin-right: 80px; }
+    .cite { font-size: 12px; opacity: 0.85; margin-top: 8px; }
+    .footer { display:flex; gap:8px; margin-top:12px; }
+    input[type=text] { flex:1; padding:12px; border-radius:12px; border:1px solid #2b3b6a; background:#0f1626; color:#e8eefb; }
+    button { padding:12px 16px; border-radius:12px; border:1px solid #2b3b6a; background:#1e2a49; color:#e8eefb; cursor:pointer; }
+    button:disabled { opacity:.6; cursor:not-allowed; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <h1>Customer Support Bot</h1>
+    <div id="chat" class="chat"></div>
+    <div class="footer">
+      <input id="q" type="text" placeholder="Ask about passwords, orders, refunds..." />
+      <button id="send">Send</button>
+    </div>
+  </div>
+  <script>
+    const chat = document.getElementById('chat');
+    const input = document.getElementById('q');
+    const send = document.getElementById('send');
+
+    function addMsg(text, cls="bot", cites=[]) {
+      const div = document.createElement('div');
+      div.className = `msg ${cls}`;
+      div.innerHTML = text.replace(/\n/g,'<br/>');
+      if (cites?.length) {
+        const c = document.createElement('div');
+        c.className = 'cite';
+        c.innerHTML = 'Sources: ' + cites.map(s => `<a href="${s.url}" target="_blank">[${s.n}] ${s.title}</a>`).join(' · ');
+        div.appendChild(c);
+      }
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+    }
+
+    async function ask(question) {
+      addMsg(question, "me");
+      addMsg("…thinking…");
+      send.disabled = true;
+      try {
+        const r = await fetch("/ask", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question })
+        });
+        const data = await r.json();
+        chat.removeChild(chat.lastChild); // remove thinking
+        addMsg(data.answer, "bot", data.citations || []);
+      } catch (e) {
+        chat.removeChild(chat.lastChild);
+        addMsg("Sorry, something went wrong.");
+      } finally {
+        send.disabled = false;
+      }
+    }
+
+    send.addEventListener('click', () => {
+      const question = input.value.trim();
+      if (!question) return;
+      input.value = "";
+      ask(question);
+    });
+
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') send.click();
+    });
+
+    addMsg("Hi! Ask me things like:<br>• How do I reset my password?<br>• What’s the refund policy?");
+  </script>
+</body>
+</html>
